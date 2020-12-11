@@ -1,0 +1,32 @@
+*~
+*.ipynb_checkpoints/
+__pycache__
+*.png
+*.pyc
+*.swp
+*.swo
+*.vscode
+*.log
+*.xls
+*.vscode
+*graph
+*.pb
+*.meta
+*.index
+*.gv
+*.svg
+*.out
+*.cu
+*jpg
+*.zip
+*.tar.gz
+models/
+!figures/*
+*.csv
+
+# Deep learning related
+*.pth
+*.weights
+
+# Processing data files
+*.vlw
