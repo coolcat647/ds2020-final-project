@@ -1,0 +1,24 @@
+FROM coolcat647/ubuntu18-ros-pytorch:cuda10.0
+
+USER root
+RUN pip3 install mmcv-full==1.2.1+torch1.4.0+cu100 -f https://download.openmmlab.com/mmcv/dist/index.html && \
+    pip3 install git+https://github.com/open-mmlab/mmdetection.git@v2.6.0 && \
+    pip3 install --force-reinstall mmpycocotools==12.0.3
+
+RUN pip3 install numba==0.48.0 \
+                 nuscenes-devkit \
+                 plyfile \
+                 scikit-image \
+                 tensorboard \
+                 trimesh>=2.35.39
+
+# RUN echo "export PATH=${PATH}:/home/${USERNAME}/.local/bin" >> /home/${USERNAME}/.bashrc && \
+#     source /home/${USERNAME}/.bashrc
+
+
+# Switch to default user
+ENV USERNAME developer
+USER $USERNAME
+
+
+CMD ["bash"]
