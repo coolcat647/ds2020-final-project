@@ -34,16 +34,16 @@ else
     echo -e "${COLOR_RED}Usage: source docker_run.sh [cuda10| same]${COLOR_NC}"
 fi
 
+
 # Find current directory and transfer it to container directory for Docker
-jupyter_port="8888"
 current_dir="$(pwd)"
 host_dir="${HOME}/"
 container_dir="/home/developer/"
 goal_dir=${current_dir//$host_dir/$container_dir}
-#echo "goal_dir: \"${goal_dir}\""
+echo -e "${COLOR_GREEN}goal_dir: \"${goal_dir}\"${COLOR_NC}"
 
-# export env
-export JUPYTER_PORT="${jupyter_port}"
+nuscenes_root="/media/hmlrobot/Intel1TB1/nuscenes_mini/"
+
 
 #
 # Execute command
@@ -53,11 +53,10 @@ if [ $# -gt 0 ]; then
         docker exec -it ds2020-final-docker bash
     else
         ${DOCKER_CMD} run --name ds2020-final-docker --rm -it --net=host --privileged -v /dev:/dev \
-            -e JUPYTER_PORT="${jupyter_port}" \
             -e DISPLAY=$DISPLAY \
             -v /etc/localtime:/etc/localtime:ro -v /var/run/docker.sock:/var/run/docker.sock \
             -v ${current_dir}:${goal_dir} \
-            -v /media/lab605/WDHDD2TB_1/nuscenes_dataset/nuscenes/:${container_dir}/nuscenes \
+            -v ${nuscenes_root}:${container_dir}/nuscenes \
             -v /tmp/.X11-unix/:/tmp/.X11-unix:rw \
             -w ${goal_dir} \
             --device=/dev/dri:/dev/dri \
@@ -68,7 +67,7 @@ if [ $# -gt 0 ]; then
             --device=/dev/nvhost-gpu \
             --device=/dev/nvhost-as-gpu \
             -v /dev/bus/usb:/dev/bus/usb \
-            coolcat647/ds2020-final:${DOCKER_TAG}      
+            coolcat647/ds2020-final-2:${DOCKER_TAG}      
     fi
 else
     echo "please provide docker tag name."
