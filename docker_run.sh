@@ -42,7 +42,7 @@ container_dir="/home/developer/"
 goal_dir=${current_dir//$host_dir/$container_dir}
 echo -e "${COLOR_GREEN}goal_dir: \"${goal_dir}\"${COLOR_NC}"
 
-nuscenes_root="/media/hmlrobot/Intel1TB1/nuscenes_mini/"
+nuscenes_root="/media/hmlrobot/Intel1TB1/nuscenes_dataset/"
 
 
 #
@@ -67,7 +67,7 @@ if [ $# -gt 0 ]; then
             --device=/dev/nvhost-gpu \
             --device=/dev/nvhost-as-gpu \
             -v /dev/bus/usb:/dev/bus/usb \
-            coolcat647/ds2020-final-2:${DOCKER_TAG}      
+            coolcat647/ds2020-final-3:${DOCKER_TAG}
     fi
 else
     echo "please provide docker tag name."

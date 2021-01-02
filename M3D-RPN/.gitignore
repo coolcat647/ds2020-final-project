@@ -1,0 +1,51 @@
+# Ignore the file without extension
+*
+!/**/
+!*.*
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# custom
+*.pkl
+*.pkl.json
+*.log.json
+output/
+data/kitti_split1/training
+data/kitti_split1/validation
+data/kitti_split2/training
+data/kitti_split2/validation
+
+# Pytorch
+*.pth
