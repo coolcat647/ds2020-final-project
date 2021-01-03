@@ -28,30 +28,41 @@ source docker_run.sh [cuda10 | same]
 ## 4. Create nusc_kitti soft link for M3D-RPN
 ```bash
 cd M3D-RPN/data
-ln -s /home/developer/nuscenes kitti
+ln -s /home/developer/nuscenes/nusc_kitti kitti
 ```
 
-## 5. Export Nuscenes to KITTI format directory (28130 samples totally for training)
+## 5. Build M3D-RPN library
+```bash
+cd M3D-RPN/lib/nms
+make
+
+# Build kitti benchmark tool
+cd M3D-RPN
+source data/kitti_split1/devkit/cpp/build.sh
+```
+
+<!-- ## Export Nuscenes to KITTI format directory (28130 samples totally for training)
 ```bash
 # In the project root
 python3 export_kitti.py nuscenes_gt_to_kitti --nusc_version v1.0-trainval --nusc_kitti_dir /home/developer/nuscenes/nusc_kitti --split train --image_count 70000
-```
+``` -->
 
-## 6. Export Nuscenes to KITTI format directory (6019 samples totally for validation)
+<!-- Export Nuscenes to KITTI format directory (6019 samples totally for validation)
 ```bash
 # In the project root
 python3 export_kitti.py nuscenes_gt_to_kitti --nusc_version v1.0-trainval --nusc_kitti_dir /home/developer/nuscenes/nusc_kitti --split val --image_count 15000
-```
+``` -->
+
 
 ---
 # Train M3D-RPN
-## Start logging server
+## 1. Start logging server
 ```bash
 cd M3D-RPN
 python3 -m visdom.server -port 8100 -readonly
 ```
 
-## Warm up mode
+## 2. Warm up mode (New terminal)
 ```bash
 # New terminal in the M3D-RPN directory
 python3 scripts/train_rpn_3d.py --config=kitti_3d_multi_warmup
