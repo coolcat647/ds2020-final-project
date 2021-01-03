@@ -73,3 +73,8 @@ Validation    | [link](https://drive.google.com/file/d/1UUE-viXM_60bbHQZC2TiImp0
 # All-in-one dataset
 [link](https://drive.google.com/file/d/1LFHgWlDKIFSqOnDsEE5cJ3w2IQGsJQEH/view?usp=sharing)
 
+# Visualization detection result
+```bash
+sudo apt-get install python3-tk
+```
+

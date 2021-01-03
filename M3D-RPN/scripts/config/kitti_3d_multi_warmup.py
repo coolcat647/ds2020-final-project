@@ -62,8 +62,9 @@ def Config():
     conf.min_gt_vis = 0.65
     conf.ilbls = ['Van', 'ignore']
     # conf.lbls = ['Car', 'Pedestrian', 'Cyclist']
-    conf.lbls = ['car', 'pedestrian', 'motorcycle', 'truck', 'barrier', 'trailer', 'traffic_cone', 'bus', 'construction_vehicle', 'bicycle']
-    
+    # conf.lbls = ['car', 'pedestrian', 'motorcycle', 'truck', 'barrier', 'trailer', 'traffic_cone', 'bus', 'construction_vehicle', 'bicycle']
+    conf.lbls = ['car', 'pedestrian', 'truck', 'trailer', 'bus']
+
     # ----------------------------------------
     #  detection sampling
     # ----------------------------------------
