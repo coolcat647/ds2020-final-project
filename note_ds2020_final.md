@@ -62,8 +62,14 @@ python3 scripts/train_rpn_3d.py --config=kitti_3d_multi_warmup
 python3 scripts/train_rpn_3d.py --config=kitti_3d_multi_main
 ```
 
+---
 
+# Day and night dataset split 
+Dataset split | Daytime     | Night     | 
+--------------|:-----:      |-----:     | 
+Train         | [link](https://drive.google.com/file/d/1PQszzW-U7rh1w3W67z6SfYDscAJnmYlt/view?usp=sharing)    |  [link](https://drive.google.com/file/d/1Vs283PRRsGBtQkTN9UvmXqSwgNDcijSh/view?usp=sharing) |   
+Validation    | [link](https://drive.google.com/file/d/1UUE-viXM_60bbHQZC2TiImp0argVlKbi/view?usp=sharing)    |  [link](https://drive.google.com/file/d/1-ipnV8bXw0ApDMV_YLlw2vo0sdSTtKFR/view?usp=sharing) |
 
-
-
+# All-in-one dataset
+[link](https://drive.google.com/file/d/1LFHgWlDKIFSqOnDsEE5cJ3w2IQGsJQEH/view?usp=sharing)
 
