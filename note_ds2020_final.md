@@ -12,6 +12,20 @@ python3 tools/create_data.py nuscenes --root-path ~/nuscenes --out-dir ~/nuscene
 
 ## 1. Download nusc_kitti
 
+### 1-1 Day and night dataset split 
+Dataset split | Daytime     | Night     | 
+--------------|:-----:      |-----:     | 
+Train         | [link](https://drive.google.com/file/d/1PQszzW-U7rh1w3W67z6SfYDscAJnmYlt/view?usp=sharing)    |  [link](https://drive.google.com/file/d/1Vs283PRRsGBtQkTN9UvmXqSwgNDcijSh/view?usp=sharing) |   
+Validation    | [link](https://drive.google.com/file/d/1UUE-viXM_60bbHQZC2TiImp0argVlKbi/view?usp=sharing)    |  [link](https://drive.google.com/file/d/1-ipnV8bXw0ApDMV_YLlw2vo0sdSTtKFR/view?usp=sharing) |
+(optional) All-in-one dataset | [link](https://drive.google.com/file/d/1LFHgWlDKIFSqOnDsEE5cJ3w2IQGsJQEH/view?usp=sharing) 
+
+
+### 1-2 Rename the dataset folder by postfix removing
+* ex: val_daytime/ &ensp;-->&ensp; val/
+* ex: train_night/ &ensp;&ensp;-->&ensp; train/
+
+
+
 ## 2. Configure docker_run.sh
 ```bash
 # At around line 45
@@ -53,7 +67,7 @@ python3 export_kitti.py nuscenes_gt_to_kitti --nusc_version v1.0-trainval --nusc
 python3 export_kitti.py nuscenes_gt_to_kitti --nusc_version v1.0-trainval --nusc_kitti_dir /home/developer/nuscenes/nusc_kitti --split val --image_count 15000
 ``` -->
 
-
+    
 ---
 # Train M3D-RPN
 ## 1. Start logging server
@@ -62,27 +76,20 @@ cd M3D-RPN
 python3 -m visdom.server -port 8100 -readonly
 ```
 
-## 2. Warm up mode (New terminal)
+## 2. Train with warmup mode (New terminal)
 ```bash
 # New terminal in the M3D-RPN directory
 python3 scripts/train_rpn_3d.py --config=kitti_3d_multi_warmup
 ```
 
-## Main depth-aware mode
+## 3. Train with depth-aware mode after finishing warmup
 ```bash
 python3 scripts/train_rpn_3d.py --config=kitti_3d_multi_main
 ```
 
 ---
 
-# Day and night dataset split 
-Dataset split | Daytime     | Night     | 
---------------|:-----:      |-----:     | 
-Train         | [link](https://drive.google.com/file/d/1PQszzW-U7rh1w3W67z6SfYDscAJnmYlt/view?usp=sharing)    |  [link](https://drive.google.com/file/d/1Vs283PRRsGBtQkTN9UvmXqSwgNDcijSh/view?usp=sharing) |   
-Validation    | [link](https://drive.google.com/file/d/1UUE-viXM_60bbHQZC2TiImp0argVlKbi/view?usp=sharing)    |  [link](https://drive.google.com/file/d/1-ipnV8bXw0ApDMV_YLlw2vo0sdSTtKFR/view?usp=sharing) |
 
-# All-in-one dataset
-[link](https://drive.google.com/file/d/1LFHgWlDKIFSqOnDsEE5cJ3w2IQGsJQEH/view?usp=sharing)
 
 # Visualization detection result
 ```bash
