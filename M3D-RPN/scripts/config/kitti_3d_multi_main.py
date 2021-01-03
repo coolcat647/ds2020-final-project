@@ -131,6 +131,8 @@ def Config():
     conf.visdom_port = 8100
     
     conf.pretrained = 'output/kitti_3d_multi_warmup/weights/model_20000_pkl'
+    conf.pretrained1 = 'output/kitti_3d_multi_warmup/weights/model_20000_pkl_feature'
+    conf.pretrained2 = 'output/kitti_3d_multi_warmup/weights/model_20000_pkl_detection'
 
     return conf
 

@@ -46,6 +46,120 @@ def init_config(conf_name):
     return conf
 
 
+def my_init_training_model(conf, cache_folder):
+    """
+    This function is meant to load the training model and optimizer, which expects
+    ./model/<conf.model>.py to be the pytorch model file.
+
+    The function copies the model file into the cache BEFORE loading, for easy reproducibility.
+    """
+
+    src_path = os.path.join('.', 'models', conf.model + '.py')
+    dst_path = os.path.join(cache_folder, conf.model + '.py')
+
+    # (re-) copy the pytorch model file
+    if os.path.exists(dst_path): os.remove(dst_path)
+    shutil.copyfile(src_path, dst_path)
+
+    # load and build
+    imported_module = absolute_import(dst_path)
+    network1, network2 = imported_module.my_build(conf, 'train')
+    
+    
+    # fake_images = torch.randn(1, 3, 512, 1760)
+    # ouuuu = network1(fake_images)
+    # fake_images = torch.randn(1, 1024, 32, 110)
+    # cls, prob, bbox_2d, bbox_3d, feat_size = network2(ouuuu)
+    # print(prob.shape)
+    # exit(-1)
+
+    # multi-gpu
+    network1 = torch.nn.DataParallel(network1)
+    network2 = torch.nn.DataParallel(network2)
+
+    # load SGD
+    if conf.solver_type.lower() == 'sgd':
+
+        lr = conf.lr
+        mo = conf.momentum
+        wd = conf.weight_decay
+
+        optimizer1 = torch.optim.SGD(network1.parameters(), lr=lr, momentum=mo, weight_decay=wd)
+        optimizer2 = torch.optim.SGD(network2.parameters(), lr=lr, momentum=mo, weight_decay=wd)
+
+    # load adam
+    elif conf.solver_type.lower() == 'adam':
+
+        lr = conf.lr
+        wd = conf.weight_decay
+
+        optimizer1 = torch.optim.Adam(network1.parameters(), lr=lr, weight_decay=wd)
+        optimizer2 = torch.optim.Adam(network2.parameters(), lr=lr, weight_decay=wd)
+
+    # load adamax
+    elif conf.solver_type.lower() == 'adamax':
+
+        lr = conf.lr
+        wd = conf.weight_decay
+
+        optimizer1 = torch.optim.Adamax(network1.parameters(), lr=lr, weight_decay=wd)
+        optimizer2 = torch.optim.Adamax(network2.parameters(), lr=lr, weight_decay=wd)
+
+
+    return network1, optimizer1, network2, optimizer2
+
+
+def init_training_model(conf, cache_folder):
+    """
+    This function is meant to load the training model and optimizer, which expects
+    ./model/<conf.model>.py to be the pytorch model file.
+
+    The function copies the model file into the cache BEFORE loading, for easy reproducibility.
+    """
+
+    src_path = os.path.join('.', 'models', conf.model + '.py')
+    dst_path = os.path.join(cache_folder, conf.model + '.py')
+
+    # (re-) copy the pytorch model file
+    if os.path.exists(dst_path): os.remove(dst_path)
+    shutil.copyfile(src_path, dst_path)
+
+    # load and build
+    network = absolute_import(dst_path)
+    network = network.build(conf, 'train')
+
+    # multi-gpu
+    network = torch.nn.DataParallel(network)
+
+    # load SGD
+    if conf.solver_type.lower() == 'sgd':
+
+        lr = conf.lr
+        mo = conf.momentum
+        wd = conf.weight_decay
+
+        optimizer = torch.optim.SGD(network.parameters(), lr=lr, momentum=mo, weight_decay=wd)
+
+    # load adam
+    elif conf.solver_type.lower() == 'adam':
+
+        lr = conf.lr
+        wd = conf.weight_decay
+
+        optimizer = torch.optim.Adam(network.parameters(), lr=lr, weight_decay=wd)
+
+    # load adamax
+    elif conf.solver_type.lower() == 'adamax':
+
+        lr = conf.lr
+        wd = conf.weight_decay
+
+        optimizer = torch.optim.Adamax(network.parameters(), lr=lr, weight_decay=wd)
+
+
+    return network, optimizer
+    
+
 def init_training_model(conf, cache_folder):
     """
     This function is meant to load the training model and optimizer, which expects
@@ -680,6 +794,22 @@ def resume_checkpoint(optim, model, weights_dir, iteration):
 
     optim.load_state_dict(torch.load(optimpath))
     model.load_state_dict(torch.load(modelpath))
+
+
+def my_save_checkpoint(optim1, model1, optim2, model2, weights_dir, iteration):
+    """
+    Saves the optimizer and model pair given the current iteration
+    and the weights storage directory.
+    """
+
+    optimpath, modelpath = checkpoint_names(weights_dir, iteration)
+
+    torch.save(optim1.state_dict(), optimpath + "_feature")
+    torch.save(model1.state_dict(), modelpath + "_feature")
+    torch.save(optim2.state_dict(), optimpath + "_detection")
+    torch.save(model2.state_dict(), modelpath + "_detection")
+
+    return modelpath, optimpath
 
 
 def save_checkpoint(optim, model, weights_dir, iteration):

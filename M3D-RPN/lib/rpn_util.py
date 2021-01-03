@@ -1161,6 +1161,143 @@ def calc_output_size(res, stride):
     return np.ceil(np.array(res)/stride).astype(int)
 
 
+def my_im_detect_3d(im, net1, net2, rpn_conf, preprocess, p2, gpu=0, synced=False):
+    """
+    Object detection in 3D
+    """
+
+    imH_orig = im.shape[0]
+    imW_orig = im.shape[1]
+
+    im = preprocess(im)
+
+    # move to GPU
+    im = torch.from_numpy(im[np.newaxis, :, :, :]).cuda()
+
+    imH = im.shape[2]
+    imW = im.shape[3]
+
+    scale_factor = imH / imH_orig
+
+    base_output = net1(im)
+    cls, prob, bbox_2d, bbox_3d, feat_size, rois = net2(base_output)
+
+    # compute feature resolution
+    num_anchors = rpn_conf.anchors.shape[0]
+
+    bbox_x = bbox_2d[:, :, 0]
+    bbox_y = bbox_2d[:, :, 1]
+    bbox_w = bbox_2d[:, :, 2]
+    bbox_h = bbox_2d[:, :, 3]
+
+    bbox_x3d = bbox_3d[:, :, 0]
+    bbox_y3d = bbox_3d[:, :, 1]
+    bbox_z3d = bbox_3d[:, :, 2]
+    bbox_w3d = bbox_3d[:, :, 3]
+    bbox_h3d = bbox_3d[:, :, 4]
+    bbox_l3d = bbox_3d[:, :, 5]
+    bbox_ry3d = bbox_3d[:, :, 6]
+
+    # detransform 3d
+    bbox_x3d = bbox_x3d * rpn_conf.bbox_stds[:, 4][0] + rpn_conf.bbox_means[:, 4][0]
+    bbox_y3d = bbox_y3d * rpn_conf.bbox_stds[:, 5][0] + rpn_conf.bbox_means[:, 5][0]
+    bbox_z3d = bbox_z3d * rpn_conf.bbox_stds[:, 6][0] + rpn_conf.bbox_means[:, 6][0]
+    bbox_w3d = bbox_w3d * rpn_conf.bbox_stds[:, 7][0] + rpn_conf.bbox_means[:, 7][0]
+    bbox_h3d = bbox_h3d * rpn_conf.bbox_stds[:, 8][0] + rpn_conf.bbox_means[:, 8][0]
+    bbox_l3d = bbox_l3d * rpn_conf.bbox_stds[:, 9][0] + rpn_conf.bbox_means[:, 9][0]
+    bbox_ry3d = bbox_ry3d * rpn_conf.bbox_stds[:, 10][0] + rpn_conf.bbox_means[:, 10][0]
+
+    # find 3d source
+    tracker = rois[:, 4].cpu().detach().numpy().astype(np.int64)
+    src_3d = torch.from_numpy(rpn_conf.anchors[tracker, 4:]).cuda().type(torch.cuda.FloatTensor)
+
+    #tracker_sca = rois_sca[:, 4].cpu().detach().numpy().astype(np.int64)
+    #src_3d_sca = torch.from_numpy(rpn_conf.anchors[tracker_sca, 4:]).cuda().type(torch.cuda.FloatTensor)
+
+    # compute 3d transform
+    widths = rois[:, 2] - rois[:, 0] + 1.0
+    heights = rois[:, 3] - rois[:, 1] + 1.0
+    ctr_x = rois[:, 0] + 0.5 * widths
+    ctr_y = rois[:, 1] + 0.5 * heights
+
+    bbox_x3d = bbox_x3d[0, :] * widths + ctr_x
+    bbox_y3d = bbox_y3d[0, :] * heights + ctr_y
+    bbox_z3d = src_3d[:, 0] + bbox_z3d[0, :]
+    bbox_w3d = torch.exp(bbox_w3d[0, :]) * src_3d[:, 1]
+    bbox_h3d = torch.exp(bbox_h3d[0, :]) * src_3d[:, 2]
+    bbox_l3d = torch.exp(bbox_l3d[0, :]) * src_3d[:, 3]
+    bbox_ry3d = src_3d[:, 4] + bbox_ry3d[0, :]
+
+    # bundle
+    coords_3d = torch.stack((bbox_x3d, bbox_y3d, bbox_z3d[:bbox_x3d.shape[0]], bbox_w3d[:bbox_x3d.shape[0]], bbox_h3d[:bbox_x3d.shape[0]], bbox_l3d[:bbox_x3d.shape[0]], bbox_ry3d[:bbox_x3d.shape[0]]), dim=1)
+
+    # compile deltas pred
+    deltas_2d = torch.cat((bbox_x[0, :, np.newaxis], bbox_y[0, :, np.newaxis], bbox_w[0, :, np.newaxis], bbox_h[0, :, np.newaxis]), dim=1)
+    coords_2d = bbox_transform_inv(rois, deltas_2d, means=rpn_conf.bbox_means[0, :], stds=rpn_conf.bbox_stds[0, :])
+
+    # detach onto cpu
+    coords_2d = coords_2d.cpu().detach().numpy()
+    coords_3d = coords_3d.cpu().detach().numpy()
+    prob = prob[0, :, :].cpu().detach().numpy()
+
+    # scale coords
+    coords_2d[:, 0:4] /= scale_factor
+    coords_3d[:, 0:2] /= scale_factor
+
+    cls_pred = np.argmax(prob[:, 1:], axis=1) + 1
+    scores = np.amax(prob[:, 1:], axis=1)
+
+    aboxes = np.hstack((coords_2d, scores[:, np.newaxis]))
+
+    sorted_inds = (-aboxes[:, 4]).argsort()
+    original_inds = (sorted_inds).argsort()
+    aboxes = aboxes[sorted_inds, :]
+    coords_3d = coords_3d[sorted_inds, :]
+    cls_pred = cls_pred[sorted_inds]
+    tracker = tracker[sorted_inds]
+
+    if synced:
+
+        # nms
+        keep_inds = gpu_nms(aboxes[:, 0:5].astype(np.float32), rpn_conf.nms_thres, device_id=gpu)
+
+        # convert to bool
+        keep = np.zeros([aboxes.shape[0], 1], dtype=bool)
+        keep[keep_inds, :] = True
+
+        # stack the keep array,
+        # sync to the original order
+        aboxes = np.hstack((aboxes, keep))
+        aboxes[original_inds, :]
+
+    else:
+
+        # pre-nms
+        cls_pred = cls_pred[0:min(rpn_conf.nms_topN_pre, cls_pred.shape[0])]
+        tracker = tracker[0:min(rpn_conf.nms_topN_pre, tracker.shape[0])]
+        aboxes = aboxes[0:min(rpn_conf.nms_topN_pre, aboxes.shape[0]), :]
+        coords_3d = coords_3d[0:min(rpn_conf.nms_topN_pre, coords_3d.shape[0])]
+
+        # nms
+        keep_inds = gpu_nms(aboxes[:, 0:5].astype(np.float32), rpn_conf.nms_thres, device_id=gpu)
+
+        # stack cls prediction
+        aboxes = np.hstack((aboxes, cls_pred[:, np.newaxis], coords_3d, tracker[:, np.newaxis]))
+
+        # suppress boxes
+        aboxes = aboxes[keep_inds, :]
+
+    # clip boxes
+    if rpn_conf.clip_boxes:
+        aboxes[:, 0] = np.clip(aboxes[:, 0], 0, imW_orig - 1)
+        aboxes[:, 1] = np.clip(aboxes[:, 1], 0, imH_orig - 1)
+        aboxes[:, 2] = np.clip(aboxes[:, 2], 0, imW_orig - 1)
+        aboxes[:, 3] = np.clip(aboxes[:, 3], 0, imH_orig - 1)
+
+    return aboxes
+
+
+
 def im_detect_3d(im, net, rpn_conf, preprocess, p2, gpu=0, synced=False):
     """
     Object detection in 3D
@@ -1311,6 +1448,145 @@ def get_2D_from_3D(p2, cx3d, cy3d, cz3d, w3d, h3d, l3d, rotY):
         y2 = max(verts3d[:, 1])
 
     return np.array([x, y, x2, y2])
+
+
+def my_test_kitti_3d(dataset_test, net1, net2, rpn_conf, results_path, test_path, use_log=True):
+    """
+    Test the KITTI framework for object detection in 3D
+    """
+
+    # import read_kitti_cal
+    from lib.imdb_util import read_kitti_cal
+
+    imlist = list_files(os.path.join(test_path, dataset_test, 'validation', 'image_2', ''), '*.png')
+
+    preprocess = Preprocess([rpn_conf.test_scale], rpn_conf.image_means, rpn_conf.image_stds)
+
+    # fix paths slightly
+    _, test_iter, _ = file_parts(results_path.replace('/data', ''))
+    test_iter = test_iter.replace('results_', '')
+
+    # init
+    test_start = time()
+
+    for imind, impath in enumerate(imlist):
+
+        im = cv2.imread(impath)
+
+        base_path, name, ext = file_parts(impath)
+
+        # read in calib
+        p2 = read_kitti_cal(os.path.join(test_path, dataset_test, 'validation', 'calib', name + '.txt'))
+        p2_inv = np.linalg.inv(p2)
+
+        # forward test batch
+        aboxes = my_im_detect_3d(im, net1, net2, rpn_conf, preprocess, p2)
+
+        base_path, name, ext = file_parts(impath)
+
+        file = open(os.path.join(results_path, name + '.txt'), 'w')
+        text_to_write = ''
+        
+        for boxind in range(0, min(rpn_conf.nms_topN_post, aboxes.shape[0])):
+
+            box = aboxes[boxind, :]
+            score = box[4]
+            cls = rpn_conf.lbls[int(box[5] - 1)]
+
+            if score >= 0.75:
+
+                x1 = box[0]
+                y1 = box[1]
+                x2 = box[2]
+                y2 = box[3]
+                width = (x2 - x1 + 1)
+                height = (y2 - y1 + 1)
+
+                # plot 3D box
+                x3d = box[6]
+                y3d = box[7]
+                z3d = box[8]
+                w3d = box[9]
+                h3d = box[10]
+                l3d = box[11]
+                ry3d = box[12]
+
+                # convert alpha into ry3d
+                coord3d = np.linalg.inv(p2).dot(np.array([x3d * z3d, y3d * z3d, 1 * z3d, 1]))
+                ry3d = convertAlpha2Rot(ry3d, coord3d[2], coord3d[0])
+
+                step_r = 0.3*math.pi
+                r_lim = 0.01
+                box_2d = np.array([x1, y1, width, height])
+
+                z3d, ry3d, verts_best = hill_climb(p2, p2_inv, box_2d, x3d, y3d, z3d, w3d, h3d, l3d, ry3d, step_r_init=step_r, r_lim=r_lim)
+
+                # predict a more accurate projection
+                coord3d = np.linalg.inv(p2).dot(np.array([x3d * z3d, y3d * z3d, 1 * z3d, 1]))
+                alpha = convertRot2Alpha(ry3d, coord3d[2], coord3d[0])
+
+                x3d = coord3d[0]
+                y3d = coord3d[1]
+                z3d = coord3d[2]
+
+                y3d += h3d/2
+                
+                text_to_write += ('{} -1 -1 {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} '
+                           + '{:.6f} {:.6f}\n').format(cls, alpha, x1, y1, x2, y2, h3d, w3d, l3d, x3d, y3d, z3d, ry3d, score)
+                           
+        file.write(text_to_write)
+        file.close()
+
+        # display stats
+        if (imind + 1) % 1000 == 0:
+            time_str, dt = compute_eta(test_start, imind + 1, len(imlist))
+
+            print_str = 'testing {}/{}, dt: {:0.3f}, eta: {}'.format(imind + 1, len(imlist), dt, time_str)
+
+            if use_log: logging.info(print_str)
+            else: print(print_str)
+
+
+    # evaluate
+    script = os.path.join(test_path, dataset_test, 'devkit', 'cpp', 'evaluate_object')
+    with open(os.devnull, 'w') as devnull:
+        out = subprocess.check_output([script, results_path.replace('/data', '')], stderr=devnull)
+
+    for lbl in rpn_conf.lbls:
+
+        lbl = lbl.lower()
+
+        respath_2d = os.path.join(results_path.replace('/data', ''), 'stats_{}_detection.txt'.format(lbl))
+        respath_gr = os.path.join(results_path.replace('/data', ''), 'stats_{}_detection_ground.txt'.format(lbl))
+        respath_3d = os.path.join(results_path.replace('/data', ''), 'stats_{}_detection_3d.txt'.format(lbl))
+
+        if os.path.exists(respath_2d):
+            easy, mod, hard = parse_kitti_result(respath_2d)
+
+            print_str = 'test_iter {} 2d {} --> easy: {:0.4f}, mod: {:0.4f}, hard: {:0.4f}'.format(test_iter, lbl,
+                                                                                                    easy, mod, hard)
+            if use_log: logging.info(print_str)
+            else: print(print_str)
+
+        if os.path.exists(respath_gr):
+            easy, mod, hard = parse_kitti_result(respath_gr)
+
+            print_str = 'test_iter {} gr {} --> easy: {:0.4f}, mod: {:0.4f}, hard: {:0.4f}'.format(test_iter, lbl,
+                                                                                                    easy, mod, hard)
+
+            if use_log: logging.info(print_str)
+            else: print(print_str)
+
+        if os.path.exists(respath_3d):
+            easy, mod, hard = parse_kitti_result(respath_3d)
+
+            print_str = 'test_iter {} 3d {} --> easy: {:0.4f}, mod: {:0.4f}, hard: {:0.4f}'.format(test_iter, lbl,
+                                                                                                    easy, mod, hard)
+
+            if use_log: logging.info(print_str)
+            else: print(print_str)
+
+
 
 
 def test_kitti_3d(dataset_test, net, rpn_conf, results_path, test_path, use_log=True):
