@@ -33,7 +33,8 @@ STATIC EVALUATION PARAMETERS
 // holds the number of test images on the server
 //const int32_t N_TESTIMAGES = 7518;
 //const int32_t N_TESTIMAGES = 7480;
-const int32_t N_TESTIMAGES = 3769;
+// const int32_t N_TESTIMAGES = 3769;
+const int32_t N_TESTIMAGES = 602;
 //const int32_t N_TESTIMAGES = 3712;
 
 
@@ -49,8 +50,9 @@ const int32_t MAX_OCCLUSION[3]  = {0, 1, 2};        // maximum occlusion level o
 const double  MAX_TRUNCATION[3] = {0.15, 0.3, 0.5}; // maximum truncation level of the groundtruth used for evaluation
 
 // evaluated object classes
-enum CLASSES{CAR=0, PEDESTRIAN=1, CYCLIST=2};
-const int NUM_CLASS = 3;
+// enum CLASSES{CAR=0, PEDESTRIAN=1, CYCLIST=2};
+enum CLASSES{CAR=0, PEDESTRIAN=1, TRUCK=2, TRAILER=3, BUS=4};
+const int NUM_CLASS = 5;
 
 // parameters varying per class
 vector<string> CLASS_NAMES;
@@ -63,12 +65,22 @@ const double N_SAMPLE_PTS = 41;
 
 // initialize class names
 void initGlobals () {
+  // CLASS_NAMES.push_back("car");
+  // CLASS_NAMES.push_back("pedestrian");
+  // CLASS_NAMES.push_back("cyclist");
+  // CLASS_NAMES_CAP.push_back("Car");
+  // CLASS_NAMES_CAP.push_back("Pedestrian");
+  // CLASS_NAMES_CAP.push_back("Cyclist");
   CLASS_NAMES.push_back("car");
   CLASS_NAMES.push_back("pedestrian");
-  CLASS_NAMES.push_back("cyclist");
+  CLASS_NAMES.push_back("truck");
+  CLASS_NAMES.push_back("trailer");
+  CLASS_NAMES.push_back("bus");
   CLASS_NAMES_CAP.push_back("Car");
   CLASS_NAMES_CAP.push_back("Pedestrian");
-  CLASS_NAMES_CAP.push_back("Cyclist");
+  CLASS_NAMES_CAP.push_back("Truck");
+  CLASS_NAMES_CAP.push_back("Trailer");
+  CLASS_NAMES_CAP.push_back("Bus");
 }
 
 /*=======================================================================

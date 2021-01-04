@@ -300,8 +300,8 @@ def visualization(image_path=None, label_path=None, calib_path=None, pred_path=N
         ax2.set_xticks([])
         ax2.set_yticks([])
         handles, labels = ax2.get_legend_handles_labels()
-        legend = ax2.legend([handles[0], handles[1]], [labels[0], labels[1]], loc='lower right',
-                            fontsize='x-small', framealpha=0.2)
+        # legend = ax2.legend([handles[0], handles[1]], [labels[0], labels[1]], loc='lower right',
+        #                     fontsize='x-small', framealpha=0.2)
         plt.show()
         # exit(-1)
 
