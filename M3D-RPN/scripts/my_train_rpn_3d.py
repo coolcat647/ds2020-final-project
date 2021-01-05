@@ -51,11 +51,20 @@ class Discriminator(nn.Module):
 
 
 def get_lambda(epoch, max_epoch):
+    print("{}/{}".format(epoch, max_epoch))
     p = epoch / max_epoch
-    return 2. / (1+np.exp(-10.*p)) - 1.
+    return 2.0 / (1.0 + np.exp(-10.0 * p)) - 1.0
+
+
+
+def sample_night_image(night_image_loader, night_image_set, step, n_batches):
+    if step % n_batches == 0:
+        night_image_set = iter(night_image_loader)
+    return night_image_set, night_image_set.next()
 
 
 def main(argv):
+    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # -----------------------------------------
     # parse arguments
@@ -96,6 +105,25 @@ def main(argv):
 
     dataset = Dataset(conf, paths.data, paths.output)
 
+    # night scene dataset and iterator
+    night_dataset = SimpleImageDataset("/home/developer/nuscenes/nusc_kitti/train_night/image_2/", conf)
+    night_image_loader = torch.utils.data.DataLoader(dataset=night_dataset,
+                                                    batch_size=conf["batch_size"],
+                                                    shuffle=True,
+                                                    drop_last=True)
+    n_batches = len(night_dataset) // conf["batch_size"]
+    night_image_set = iter(night_image_loader)
+
+    # for step in range(10):
+    #     n_critic = 1 # for training more k steps about Discriminator    
+    #     night_image_set, tgt_images = sample_night_image(night_image_loader, night_image_set, step, n_batches)
+    #     print(tgt_images.shape)
+    #     grid = torchvision.utils.make_grid(tgt_images)
+    #     npgrid = grid.cpu().numpy()
+    #     plt.imshow(np.transpose(npgrid, (1, 2, 0)), interpolation='nearest')
+    #     plt.pause(0.5)
+
+
     generate_anchors(conf, dataset.imdb, paths.output)
     compute_bbox_stats(conf, dataset.imdb, paths.output)
 
@@ -105,7 +133,7 @@ def main(argv):
     # -----------------------------------------
 
     # store configuration
-    # pickle_write(os.path.join(paths.output, 'conf.pkl'), conf)
+    pickle_write(os.path.join(paths.output, 'conf.pkl'), conf)
 
     # show configuration
     pretty = pretty_print('conf', conf)
@@ -145,12 +173,15 @@ def main(argv):
     # fake_images = torch.randn(1, 3, 512, 1760).cuda()
     # cls, prob, bbox_2d, bbox_3d, feat_size = feature_net(fake_images)
 
-    discriminator = Discriminator().cuda()
-    # discriminator(base_out)
-
-    # iterator, images, imobjs = next_iteration(dataset.loader, iterator)
-    # print(images.shape)
-
+    discriminator = Discriminator().to(DEVICE)
+    D_opt = torch.optim.Adam(discriminator.parameters(), lr=0.01)
+    D_src = torch.ones(conf["batch_size"], 1).to(DEVICE) # Discriminator Label to real
+    D_tgt = torch.zeros(conf["batch_size"], 1).to(DEVICE) # Discriminator Label to fake
+    D_labels = torch.cat([D_src, D_tgt], dim=0)
+    # bce = nn.BCELoss()
+    bce = nn.MSELoss()
+    
+    discriminator.train()
     # -----------------------------------------
     # train
     # -----------------------------------------
@@ -158,25 +189,49 @@ def main(argv):
     for iteration in range(start_iter, conf.max_iter):
 
         # next iteration
-        iterator, images, imobjs = next_iteration(dataset.loader, iterator)
+        iterator, src_images, imobjs = next_iteration(dataset.loader, iterator)
+
+        ###
+        night_image_set, tgt_images = sample_night_image(night_image_loader, night_image_set, iteration, n_batches)
+        tgt_images = tgt_images.to(DEVICE)
 
         #  learning rate
         adjust_lr(conf, f_optimizer, iteration)
         adjust_lr(conf, d_optimizer, iteration)
 
         # forward
-        base_output = feature_net(images)
-        cls, prob, bbox_2d, bbox_3d, feat_size = detection_net(base_output)
+        # base_output = feature_net(src_images)
+        # cls, prob, bbox_2d, bbox_3d, feat_size = detection_net(base_output)
+
+        # # loss
+        # det_loss, det_stats = criterion_det(cls, prob, bbox_2d, bbox_3d, imobjs, feat_size)
+        # total_loss = det_loss
+        # stats = det_stats
+        x = torch.cat([src_images, tgt_images], dim=0)
+        base_output = feature_net(x)
+        pred_discrimination = discriminator(base_output.detach())
+        Ld = bce(pred_discrimination, D_labels)
+        discriminator.zero_grad()
+        Ld.backward()
+        D_opt.step()
+
+        cls, prob, bbox_2d, bbox_3d, feat_size = detection_net(base_output[:conf["batch_size"]])
+        pred_discrimination = discriminator(base_output)
 
         # loss
-        det_loss, det_stats = criterion_det(cls, prob, bbox_2d, bbox_3d, imobjs, feat_size)
+        Lc, det_stats = criterion_det(cls, prob, bbox_2d, bbox_3d, imobjs, feat_size)
+        Ld = bce(pred_discrimination, D_labels)
+        lamda = 0.5 * get_lambda(iteration, conf.max_iter)
 
-        total_loss = det_loss
+        
+        total_loss = Lc - lamda * Ld
         stats = det_stats
-
+        print("lambda: {:.3f}, Lc: {:.2f}, Ld: {:.2f}, Ltotal:{:.2f}".format(lamda, Lc, Ld, total_loss))
         # backprop
         if total_loss > 0:
+            
 
+            # discriminator.zero_grad()
             total_loss.backward()
 
             # batch skip, simulates larger batches by skipping gradient step
@@ -185,7 +240,9 @@ def main(argv):
                 f_optimizer.zero_grad()
                 d_optimizer.step()
                 d_optimizer.zero_grad()
-
+        else:
+            total_loss.backward()
+        
         # keep track of stats
         compute_stats(tracker, stats)
 
@@ -208,7 +265,6 @@ def main(argv):
         # test network
         # -----------------------------------------
         if (iteration + 1) % conf.snapshot_iter == 0 and iteration > start_iter:
-
             # store checkpoint
             my_save_checkpoint(f_optimizer, feature_net, d_optimizer, detection_net, paths.weights, (iteration + 1))
 
@@ -217,6 +273,7 @@ def main(argv):
                 # eval mode
                 feature_net.eval()
                 detection_net.eval()
+                discriminator.eval()
 
                 # necessary paths
                 results_path = os.path.join(paths.results, 'results_{}'.format((iteration + 1)))
@@ -237,6 +294,8 @@ def main(argv):
 
                 # train mode
                 feature_net.train()
+                detection_net.train()
+                discriminator.train()
 
                 freeze_layers(feature_net, freeze_blacklist, freeze_whitelist)
                 freeze_layers(detection_net, freeze_blacklist, freeze_whitelist)

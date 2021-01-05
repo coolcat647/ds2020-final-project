@@ -12,6 +12,7 @@ simple custom format for the detetive framework.
 import torch
 import torch.utils.data as data
 import sys
+import os
 import re
 from PIL import Image
 from copy import deepcopy
@@ -25,6 +26,53 @@ from lib.rpn_util import *
 from lib.util import *
 from lib.augmentations import *
 from lib.core import *
+import torchvision
+
+
+class SimpleImageDataset(torch.utils.data.Dataset):
+    """
+    A single Dataset class is used for the whole project,
+    which implements the __init__ and __get__ functions from PyTorch.
+    """
+
+    def __init__(self, root, conf):
+        self.image_path_list = []
+        if os.path.isdir(root):
+            self.image_path_list = [filename for filename in os.listdir(root) if filename.lower().endswith((".png", ".jpg"))]
+        else:
+            raise ValueError("Invalid dataset path:{}".format(root))
+
+        self.root = root
+        self.len = len(self.image_path_list)
+        # self.transform = Augmentation(conf)
+        self.transform = torchvision.transforms.Compose([
+            torchvision.transforms.ToPILImage(),
+            torchvision.transforms.RandomHorizontalFlip(conf.mirror_prob),
+            torchvision.transforms.Resize(conf.crop_size),
+            torchvision.transforms.ToTensor(),
+            # torchvision.transforms.transforms.Normalize(mean=conf.image_means,
+            #                                             std=conf.image_stds)
+            ])
+
+
+    def __getitem__(self, index):
+        image_path = os.path.join(self.root, self.image_path_list[index])
+        if os.path.isfile(image_path):
+            im = cv2.cvtColor(cv2.imread(image_path), cv2.COLOR_BGR2RGB)
+            im = self.transform(im)
+
+            return im
+        else:
+            raise ValueError("Invalid image path:{}".format(image_path))
+
+
+    def __len__(self):
+        """
+        Simply return the length of the dataset.
+        """
+        return self.len
+
+
 
 class Dataset(torch.utils.data.Dataset):
     """

@@ -1587,8 +1587,6 @@ def my_test_kitti_3d(dataset_test, net1, net2, rpn_conf, results_path, test_path
             else: print(print_str)
 
 
-
-
 def test_kitti_3d(dataset_test, net, rpn_conf, results_path, test_path, use_log=True):
     """
     Test the KITTI framework for object detection in 3D

@@ -31,8 +31,10 @@ def Config():
     conf.cuda_seed = 2
     
     # misc network
-    conf.image_means = [0.485, 0.456, 0.406]
-    conf.image_stds = [0.229, 0.224, 0.225]
+    # conf.image_means = [0.485, 0.456, 0.406]
+    # conf.image_stds = [0.229, 0.224, 0.225]
+    conf.image_means = [0.0, 0.0, 0.0]
+    conf.image_stds = [1.0, 1.0, 1.0]
     conf.feat_stride = 16
     
     conf.has_3d = True
@@ -70,7 +72,7 @@ def Config():
     # ----------------------------------------
     
     # detection sampling
-    conf.batch_size = 2
+    conf.batch_size = 1
     conf.fg_image_ratio = 2.0
     conf.box_samples = 0.20
     conf.fg_fraction = 0.20
