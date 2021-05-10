@@ -13,10 +13,11 @@ def Config():
     
     # solver settings
     conf.solver_type = 'sgd'
+    # conf.solver_type = 'adam'
     conf.lr = 0.004
     conf.momentum = 0.9
     conf.weight_decay = 0.0005
-    conf.max_iter = 20000
+    conf.max_iter = 50000
     conf.snapshot_iter = 10000
     conf.display = 250
     conf.do_test = True
@@ -45,7 +46,8 @@ def Config():
 
     # scale sampling  
     conf.test_scale = 512
-    conf.crop_size = [512, 1760]
+    # conf.crop_size = [512, 1760]
+    conf.crop_size = [450, 800]
     conf.mirror_prob = 0.50
     conf.distort_prob = -1
     
@@ -65,14 +67,14 @@ def Config():
     conf.ilbls = ['Van', 'ignore']
     # conf.lbls = ['Car', 'Pedestrian', 'Cyclist']
     # conf.lbls = ['car', 'pedestrian', 'motorcycle', 'truck', 'barrier', 'trailer', 'traffic_cone', 'bus', 'construction_vehicle', 'bicycle']
-    conf.lbls = ['car', 'pedestrian', 'truck', 'trailer', 'bus']
+    conf.lbls = ['car', 'pedestrian', 'truck', 'trailer', 'bus', 'motorcycle']
 
     # ----------------------------------------
     #  detection sampling
     # ----------------------------------------
     
     # detection sampling
-    conf.batch_size = 1
+    conf.batch_size = 2
     conf.fg_image_ratio = 2.0
     conf.box_samples = 0.20
     conf.fg_fraction = 0.20
@@ -129,6 +131,9 @@ def Config():
     
     # visdom
     conf.visdom_port = 8100
+
+    conf.pretrained1 = 'output/kitti_3d_multi_warmup/weights/model_20000_pkl_feature'
+    conf.pretrained2 = 'output/kitti_3d_multi_warmup/weights/model_20000_pkl_detection'
 
     return conf
 

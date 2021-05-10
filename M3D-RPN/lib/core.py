@@ -63,19 +63,20 @@ def my_init_training_model(conf, cache_folder):
 
     # load and build
     imported_module = absolute_import(dst_path)
-    network1, network2 = imported_module.my_build(conf, 'train')
+    f_net, det_net, domain_net = imported_module.my_build(conf, 'train')
     
     
     # fake_images = torch.randn(1, 3, 512, 1760)
-    # ouuuu = network1(fake_images)
+    # ouuuu = f_net(fake_images)
     # fake_images = torch.randn(1, 1024, 32, 110)
-    # cls, prob, bbox_2d, bbox_3d, feat_size = network2(ouuuu)
+    # cls, prob, bbox_2d, bbox_3d, feat_size = det_net(ouuuu)
     # print(prob.shape)
     # exit(-1)
 
     # multi-gpu
-    network1 = torch.nn.DataParallel(network1)
-    network2 = torch.nn.DataParallel(network2)
+    f_net = torch.nn.DataParallel(f_net)
+    det_net = torch.nn.DataParallel(det_net)
+    domain_net = torch.nn.DataParallel(domain_net)
 
     # load SGD
     if conf.solver_type.lower() == 'sgd':
@@ -84,8 +85,9 @@ def my_init_training_model(conf, cache_folder):
         mo = conf.momentum
         wd = conf.weight_decay
 
-        optimizer1 = torch.optim.SGD(network1.parameters(), lr=lr, momentum=mo, weight_decay=wd)
-        optimizer2 = torch.optim.SGD(network2.parameters(), lr=lr, momentum=mo, weight_decay=wd)
+        opt_f = torch.optim.SGD(f_net.parameters(), lr=lr, momentum=mo, weight_decay=wd)
+        opt_det = torch.optim.SGD(det_net.parameters(), lr=lr, momentum=mo, weight_decay=wd)
+        opt_domain = torch.optim.SGD(domain_net.parameters(), lr=lr, momentum=mo, weight_decay=wd)
 
     # load adam
     elif conf.solver_type.lower() == 'adam':
@@ -93,8 +95,9 @@ def my_init_training_model(conf, cache_folder):
         lr = conf.lr
         wd = conf.weight_decay
 
-        optimizer1 = torch.optim.Adam(network1.parameters(), lr=lr, weight_decay=wd)
-        optimizer2 = torch.optim.Adam(network2.parameters(), lr=lr, weight_decay=wd)
+        opt_f = torch.optim.Adam(f_net.parameters(), lr=lr, weight_decay=wd)
+        opt_det = torch.optim.Adam(det_net.parameters(), lr=lr, weight_decay=wd)
+        opt_domain = torch.optim.Adam(domain_net.parameters(), lr=lr, weight_decay=wd)
 
     # load adamax
     elif conf.solver_type.lower() == 'adamax':
@@ -102,63 +105,12 @@ def my_init_training_model(conf, cache_folder):
         lr = conf.lr
         wd = conf.weight_decay
 
-        optimizer1 = torch.optim.Adamax(network1.parameters(), lr=lr, weight_decay=wd)
-        optimizer2 = torch.optim.Adamax(network2.parameters(), lr=lr, weight_decay=wd)
+        opt_f = torch.optim.Adamax(f_net.parameters(), lr=lr, weight_decay=wd)
+        opt_det = torch.optim.Adamax(det_net.parameters(), lr=lr, weight_decay=wd)
+        opt_domain = torch.optim.Adamax(domain_net.parameters(), lr=lr, weight_decay=wd)
 
+    return f_net, opt_f, det_net, opt_det, domain_net, opt_domain
 
-    return network1, optimizer1, network2, optimizer2
-
-
-def init_training_model(conf, cache_folder):
-    """
-    This function is meant to load the training model and optimizer, which expects
-    ./model/<conf.model>.py to be the pytorch model file.
-
-    The function copies the model file into the cache BEFORE loading, for easy reproducibility.
-    """
-
-    src_path = os.path.join('.', 'models', conf.model + '.py')
-    dst_path = os.path.join(cache_folder, conf.model + '.py')
-
-    # (re-) copy the pytorch model file
-    if os.path.exists(dst_path): os.remove(dst_path)
-    shutil.copyfile(src_path, dst_path)
-
-    # load and build
-    network = absolute_import(dst_path)
-    network = network.build(conf, 'train')
-
-    # multi-gpu
-    network = torch.nn.DataParallel(network)
-
-    # load SGD
-    if conf.solver_type.lower() == 'sgd':
-
-        lr = conf.lr
-        mo = conf.momentum
-        wd = conf.weight_decay
-
-        optimizer = torch.optim.SGD(network.parameters(), lr=lr, momentum=mo, weight_decay=wd)
-
-    # load adam
-    elif conf.solver_type.lower() == 'adam':
-
-        lr = conf.lr
-        wd = conf.weight_decay
-
-        optimizer = torch.optim.Adam(network.parameters(), lr=lr, weight_decay=wd)
-
-    # load adamax
-    elif conf.solver_type.lower() == 'adamax':
-
-        lr = conf.lr
-        wd = conf.weight_decay
-
-        optimizer = torch.optim.Adamax(network.parameters(), lr=lr, weight_decay=wd)
-
-
-    return network, optimizer
-    
 
 def init_training_model(conf, cache_folder):
     """
@@ -784,6 +736,22 @@ def check_tensors():
             pass
 
 
+def my_resume_checkpoint(optim1, model1, optim2, model2, optim3, model3, weights_dir, iteration):
+    """
+    Loads the optimizer and model pair given the current iteration
+    and the weights storage directory.
+    """
+
+    optimpath, modelpath = checkpoint_names(weights_dir, iteration)
+
+    optim1.load_state_dict(torch.load(optimpath + "_feature"))
+    model1.load_state_dict(torch.load(modelpath + "_feature"))
+    optim2.load_state_dict(torch.load(optimpath + "_detection"))
+    model2.load_state_dict(torch.load(modelpath + "_detection"))
+    optim3.load_state_dict(torch.load(optimpath + "_domain"))
+    model3.load_state_dict(torch.load(modelpath + "_domain"))
+
+
 def resume_checkpoint(optim, model, weights_dir, iteration):
     """
     Loads the optimizer and model pair given the current iteration
@@ -796,7 +764,7 @@ def resume_checkpoint(optim, model, weights_dir, iteration):
     model.load_state_dict(torch.load(modelpath))
 
 
-def my_save_checkpoint(optim1, model1, optim2, model2, weights_dir, iteration):
+def my_save_checkpoint(optim1, model1, optim2, model2, optim3, model3, weights_dir, iteration):
     """
     Saves the optimizer and model pair given the current iteration
     and the weights storage directory.
@@ -808,6 +776,8 @@ def my_save_checkpoint(optim1, model1, optim2, model2, weights_dir, iteration):
     torch.save(model1.state_dict(), modelpath + "_feature")
     torch.save(optim2.state_dict(), optimpath + "_detection")
     torch.save(model2.state_dict(), modelpath + "_detection")
+    torch.save(optim3.state_dict(), optimpath + "_domain")
+    torch.save(model3.state_dict(), modelpath + "_domain")
 
     return modelpath, optimpath
 

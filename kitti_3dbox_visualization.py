@@ -227,7 +227,8 @@ def visualization(image_path=None, label_path=None, calib_path=None, pred_path=N
     label_path = "/home/developer/samliu/ds2020-final-project/M3D-RPN/data/kitti_split1/validation/label_2"
     calib_path = "/home/developer/samliu/ds2020-final-project/M3D-RPN/data/kitti_split1/validation/calib"
     pred_path = "/home/developer/samliu/ds2020-final-project/M3D-RPN/output/tmp_results/data"
-
+    
+    pred_path2 = "/home/developer/samliu/ds2020-final-project/M3D-RPN/output/tmp_results_valall_baseline50000/data"
     samples_list = [filename[:-4] for filename in os.listdir(os.path.join(image_path)) if filename.lower().endswith(("txt", "jpg", "png", "pcd", "bin"))]
     print(len(samples_list))
     samples_list.sort()
@@ -239,10 +240,12 @@ def visualization(image_path=None, label_path=None, calib_path=None, pred_path=N
         label_file = os.path.join(label_path, idx_text + '.txt')
         calibration_file = os.path.join(calib_path, idx_text + '.txt')
         prediction_file = os.path.join(pred_path, idx_text + '.txt')
+        prediction_file2 = os.path.join(pred_path2, idx_text + '.txt')
         # word_file = open(prediction_file, 'r')
         # print(word_file.read())
         # word_file = open(label_file, 'r')
         # print(word_file.read())
+        print("file1:", prediction_file, "\nfile2: ", prediction_file2)
 
         # Prepare calibration data
         for line in open(calibration_file):
@@ -251,12 +254,14 @@ def visualization(image_path=None, label_path=None, calib_path=None, pred_path=N
                 P2 = np.asarray([float(i) for i in P2[1:]])
                 P2 = np.reshape(P2, (3, 4))
 
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 9))
+        # fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 9))
+        fig, ax1 = plt.subplots(1, 1, figsize=(16, 9))
         plt.title("sample: {}".format(idx_text))
         shape = 900
         birdimage = np.zeros((shape, shape, 3), np.uint8)
     
-        with open(label_file) as gt_file, open(prediction_file) as pred_file:
+        # with open(label_file) as gt_file, open(prediction_file) as pred_file:
+        with open(prediction_file2) as gt_file, open(prediction_file) as pred_file:
             # print(zip(gt_file, pred_file))
             for line_gt, line_pred in zip(gt_file, pred_file):
                 line_gt = line_gt.strip().split(' ')
@@ -268,18 +273,31 @@ def visualization(image_path=None, label_path=None, calib_path=None, pred_path=N
 
                 # truncated object in dataset is not observable
                 # if line_pred[0] in VEHICLES  and truncated < trunc_level:q
-                if line_pred[0].lower() in ('vehicle', 'car'):
+                if line_pred[0].lower() in ('vehicle', 'car', 'truck'):
                     color = 'blue'
-                elif line_pred[0].lower() in ('truck'):
-                    color = 'orange'
+                # elif line_pred[0].lower() in ():
+                #     color = 'orange'
                 elif line_pred[0].lower() in ('bus'):
                     color = 'purple'
                 elif line_pred[0].lower() in ('cyclist', 'bicycle', 'motorcycle'):
                     color = 'yellow'
                 elif line_pred[0] == 'pedestrian':
                     color = 'cyan'
+                    
                 draw_3Dbox(ax1, P2, line_pred, color)
-                draw_birdeyes(ax2, line_gt, line_pred, shape)
+
+                if line_gt[0].lower() in ('vehicle', 'car', 'truck'):
+                    color = 'blue'
+                # elif line_gt[0].lower() in ():
+                #     color = 'orange'
+                elif line_gt[0].lower() in ('bus'):
+                    color = 'purple'
+                elif line_gt[0].lower() in ('cyclist', 'bicycle', 'motorcycle'):
+                    color = 'yellow'
+                elif line_gt[0] == 'pedestrian':
+                    color = 'cyan'
+                # draw_3Dbox(ax2, P2, line_gt, color)
+                # draw_birdeyes(ax2, line_gt, line_pred, shape)
 
         
         
@@ -287,19 +305,20 @@ def visualization(image_path=None, label_path=None, calib_path=None, pred_path=N
         image = PILImage.open(image_file).convert('RGB')
         
         ax1.imshow(image)
+        # ax2.imshow(image)
 
         # plot camera view range
-        x1 = np.linspace(0, shape / 2)
-        x2 = np.linspace(shape / 2, shape)
-        ax2.plot(x1, shape / 2 - x1, ls='--', color='grey', linewidth=1, alpha=0.5)
-        ax2.plot(x2, x2 - shape / 2, ls='--', color='grey', linewidth=1, alpha=0.5)
-        ax2.plot(shape / 2, 0, marker='+', markersize=16, markeredgecolor='red')
+        ## x1 = np.linspace(0, shape / 2)
+        ## x2 = np.linspace(shape / 2, shape)
+        ## ax2.plot(x1, shape / 2 - x1, ls='--', color='grey', linewidth=1, alpha=0.5)
+        ## ax2.plot(x2, x2 - shape / 2, ls='--', color='grey', linewidth=1, alpha=0.5)
+        ## ax2.plot(shape / 2, 0, marker='+', markersize=16, markeredgecolor='red')
 
         # visualize bird eye view
-        ax2.imshow(birdimage, origin='lower')
-        ax2.set_xticks([])
-        ax2.set_yticks([])
-        handles, labels = ax2.get_legend_handles_labels()
+        ## ax2.imshow(birdimage, origin='lower')
+        ## ax2.set_xticks([])
+        ## ax2.set_yticks([])
+        ## handles, labels = ax2.get_legend_handles_labels()
         # legend = ax2.legend([handles[0], handles[1]], [labels[0], labels[1]], loc='lower right',
         #                     fontsize='x-small', framealpha=0.2)
         plt.show()

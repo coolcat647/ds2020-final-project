@@ -51,8 +51,8 @@ const double  MAX_TRUNCATION[3] = {0.15, 0.3, 0.5}; // maximum truncation level 
 
 // evaluated object classes
 // enum CLASSES{CAR=0, PEDESTRIAN=1, CYCLIST=2};
-enum CLASSES{CAR=0, PEDESTRIAN=1, TRUCK=2, TRAILER=3, BUS=4};
-const int NUM_CLASS = 5;
+enum CLASSES{CAR=0, PEDESTRIAN=1, TRUCK=2, TRAILER=3, BUS=4, MOTORCYCLE=5};
+const int NUM_CLASS = 6;
 
 // parameters varying per class
 vector<string> CLASS_NAMES;
@@ -76,11 +76,14 @@ void initGlobals () {
   CLASS_NAMES.push_back("truck");
   CLASS_NAMES.push_back("trailer");
   CLASS_NAMES.push_back("bus");
+  CLASS_NAMES.push_back("motorcycle");
   CLASS_NAMES_CAP.push_back("Car");
   CLASS_NAMES_CAP.push_back("Pedestrian");
   CLASS_NAMES_CAP.push_back("Truck");
   CLASS_NAMES_CAP.push_back("Trailer");
   CLASS_NAMES_CAP.push_back("Bus");
+  CLASS_NAMES_CAP.push_back("Motorcycle");
+  
 }
 
 /*=======================================================================

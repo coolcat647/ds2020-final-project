@@ -44,12 +44,12 @@ init_torch(conf.rng_seed, conf.cuda_seed)
 
 # net
 # net = import_module('models.' + conf.model).build(conf)
-network1, network2 = import_module('models.' + conf.model).my_build(conf)
+network1, network2, network3 = import_module('models.' + conf.model).my_build(conf)
 
 # load weights
 # load_weights(net, weights_path, remove_module=True)
-load_weights(network1, "/home/developer/samliu/ds2020-final-project/M3D-RPN/output/kitti_3d_multi_warmup/weights/model_20000_pkl_feature", remove_module=True)
-load_weights(network2, "/home/developer/samliu/ds2020-final-project/M3D-RPN/output/kitti_3d_multi_warmup/weights/model_20000_pkl_detection", remove_module=True)
+load_weights(network1, "/home/developer/samliu/ds2020-final-project/M3D-RPN/output/kitti_3d_multi_warmup/weights/model_50000_pkl_feature", remove_module=True)
+load_weights(network2, "/home/developer/samliu/ds2020-final-project/M3D-RPN/output/kitti_3d_multi_warmup/weights/model_50000_pkl_detection", remove_module=True)
 
 # switch modes for evaluation
 # net.eval()
